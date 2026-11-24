@@ -200,7 +200,7 @@ function Login({ onLogin }) {
         {PERFILES.map((p) => (
           <button key={p.u} type="button" className={'profile' + (u === p.u ? ' on' : '')} aria-pressed={u === p.u}
             onClick={() => { setU(p.u); setErr(''); setPw(''); }}>
-            <Avatar u={p.u} size="lg" /><b>{p.nombre}</b><span className={'role ' + p.rol}>{ROLE_LABEL[p.rol]}</span>
+            <Avatar u={p.u} size="lg" /><b>{p.nombre}</b><span className={'role ' + p.rol}>{p.rol === 'admin' ? 'Admin' : 'Chofer'}</span>
           </button>
         ))}
       </div>
