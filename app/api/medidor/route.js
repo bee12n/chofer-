@@ -8,7 +8,7 @@ export const PUT = handler(null, async (req, u) => {
   const f = chofer ? hoyMX() : fecha(b.fecha);
   const cam = entero(b.camioneta, 'Elige una camioneta.');
   const km = entero(b.km, 'Escribe los kilómetros del medidor.');
-  const emp = entOpc(b.empleado);
+  const emp = chofer ? u.empleado : entOpc(b.empleado);
   await camActiva(sql, cam);
   await empActivo(sql, emp);
   const [prev] = await sql`SELECT km FROM medidor WHERE camioneta_id = ${cam} AND fecha < ${f} ORDER BY fecha DESC LIMIT 1`;

@@ -1,17 +1,19 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api, pushToast, ToastHost, I, Mark, Avatar, Splash } from '@/components/ui';
+import { api, pushToast, ToastHost, I, Mark, Avatar, EmpAvatar, Splash } from '@/components/ui';
 import ChoferView from '@/components/chofer';
 import Dia from '@/components/admin/dia';
 import Dashboard from '@/components/admin/dashboard';
 import Mantenimiento from '@/components/admin/mant';
 import Flota from '@/components/admin/flota';
 
-const PERFILES = [
-  { u: 'ximena', nombre: 'Ximena', rol: 'admin', sub: 'Admin' },
-  { u: 'ana', nombre: 'Ana', rol: 'admin', sub: 'Admin' },
-  { u: 'chofer', nombre: 'Chofer', rol: 'chofer', sub: 'Sin contraseña' },
+const ADMINS = [
+  { u: 'ximena', nombre: 'Ximena' },
+  { u: 'ana', nombre: 'Ana' },
 ];
+const LAST_KEY = 'bc-ultimo-chofer';
+const readLast = () => { try { return JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch { return null; } };
+const saveLast = (v) => { try { localStorage.setItem(LAST_KEY, JSON.stringify(v)); } catch {} };
 const ROLE_LABEL = { admin: 'Administración', chofer: 'Chofer' };
 
 export default function Page() {
@@ -26,41 +28,106 @@ export default function Page() {
 }
 
 function Login({ onLogin }) {
-  const [u, setU] = useState(null);
+  const [choferes, setChoferes] = useState(null);
+  const [loadErr, setLoadErr] = useState('');
+  const [last, setLast] = useState(null);
+  const [q, setQ] = useState('');
+  const [admin, setAdmin] = useState(null);
   const [pw, setPw] = useState('');
+  const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(null);
   const pwRef = useRef(null);
-  useEffect(() => { if (u) pwRef.current?.focus(); }, [u]);
-  const entrar = async (usuario, password) => {
-    setBusy(true); setErr('');
-    try { const d = await api('/api/login', { method: 'POST', body: { usuario, password } }); onLogin(d.user); }
-    catch (e) { setErr(e.message); setBusy(false); }
+
+  const cargar = useCallback(() => {
+    setLoadErr('');
+    api('/api/choferes').then((d) => setChoferes(d.choferes)).catch((e) => setLoadErr(e.message));
+  }, []);
+  useEffect(() => { cargar(); setLast(readLast()); }, [cargar]);
+  useEffect(() => { if (admin) pwRef.current?.focus(); }, [admin]);
+
+  const entrarChofer = async (c) => {
+    if (busy) return;
+    setBusy('c' + c.id); setErr('');
+    try {
+      const d = await api('/api/login', { method: 'POST', body: { usuario: 'chofer', empleado: c.id } });
+      saveLast({ id: c.id, nombre: c.nombre });
+      onLogin(d.user);
+    } catch (e) { setErr(e.message); setBusy(null); cargar(); }
   };
-  const pick = (p) => {
-    setErr(''); setPw('');
-    if (p.rol === 'chofer') { setU(null); entrar('chofer', ''); } else setU(p.u);
+  const entrarAdmin = async (e) => {
+    e.preventDefault();
+    if (busy || !admin) return;
+    setBusy(admin); setErr('');
+    try { const d = await api('/api/login', { method: 'POST', body: { usuario: admin, password: pw } }); onLogin(d.user); }
+    catch (e2) { setErr(e2.message); setBusy(null); setPw(''); pwRef.current?.focus(); }
   };
+
+  const lastOk = last && choferes?.find((c) => c.id === last.id);
+  const lista = (choferes || []).filter((c) => !q.trim() || c.nombre.toLowerCase().includes(q.trim().toLowerCase()));
+
   return (
-    <Splash>
-      <p className="muted">¿Quién eres?</p>
-      <div className="profiles">
-        {PERFILES.map((p) => (
-          <button key={p.u} type="button" className={'profile' + (u === p.u ? ' on' : '')} aria-pressed={u === p.u} disabled={busy} onClick={() => pick(p)}>
-            <Avatar u={p.u} size="lg" /><b>{p.nombre}</b><span className={'role ' + p.rol}>{p.sub}</span>
+    <div className="splash layer">
+      <div className="glass splash-card login-card">
+        <div className="login-head">
+          <Mark big />
+          <div><h1>Bitácora del Chofer</h1><p className="muted">¿Quién eres?</p></div>
+        </div>
+
+        {lastOk && (
+          <button type="button" className="continue" disabled={!!busy} onClick={() => entrarChofer(lastOk)}>
+            <EmpAvatar emp={lastOk} size="lg" />
+            <span className="continue-txt"><small>Último en este celular</small><b>Continuar como {lastOk.nombre}</b></span>
+            <span className="continue-go" aria-hidden="true">{I.right}</span>
           </button>
-        ))}
+        )}
+
+        <section className="login-sec">
+          <div className="login-sec-head"><span className="eyebrow">Choferes</span><span className="pill ok">Sin contraseña</span></div>
+          {choferes === null && !loadErr && <div className="loader" />}
+          {loadErr && <><p className="err">{loadErr}</p><button type="button" className="btn soft" onClick={cargar}>Reintentar</button></>}
+          {choferes && choferes.length > 6 && (
+            <input className="input" type="search" id="buscar-chofer" placeholder="Buscar tu nombre…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar chofer" />
+          )}
+          {choferes && (choferes.length ? (
+            <div className="drivers">
+              {lista.map((c) => (
+                <button type="button" key={c.id} className="driver" disabled={!!busy} onClick={() => entrarChofer(c)}>
+                  <EmpAvatar emp={c} size="sm2" />
+                  <span className="driver-txt"><b>{c.nombre}</b><small>{busy === 'c' + c.id ? 'Entrando…' : c.camionetas[0] || 'Sin camioneta asignada'}</small></span>
+                </button>
+              ))}
+              {!lista.length && <p className="hint">Nadie se llama así.</p>}
+            </div>
+          ) : <div className="empty">Todavía no hay choferes. Ana o Ximena los agregan en Flota → Empleados.</div>)}
+        </section>
+
+        <section className="login-sec">
+          <div className="login-sec-head"><span className="eyebrow">Administración</span></div>
+          <div className="admins">
+            {ADMINS.map((a) => (
+              <button key={a.u} type="button" className={'admin-btn' + (admin === a.u ? ' on' : '')} aria-pressed={admin === a.u} disabled={!!busy && busy !== a.u}
+                onClick={() => { setAdmin(admin === a.u ? null : a.u); setPw(''); setErr(''); }}>
+                <Avatar u={a.u} size="sm2" /><b>{a.nombre}</b>
+              </button>
+            ))}
+          </div>
+          {admin && (
+            <form className="login-form" onSubmit={entrarAdmin}>
+              <label className="field">Contraseña de {ADMINS.find((a) => a.u === admin).nombre}
+                <span className="pw-wrap">
+                  <input ref={pwRef} id="password" type={show ? 'text' : 'password'} autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required />
+                  <button type="button" className="pw-toggle" onClick={() => setShow(!show)} aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}>{show ? 'Ocultar' : 'Ver'}</button>
+                </span>
+              </label>
+              <button className="btn" type="submit" disabled={!!busy}>{busy === admin ? 'Entrando…' : 'Entrar'}</button>
+            </form>
+          )}
+        </section>
+
+        {err && <p className="err" role="alert">{err}</p>}
       </div>
-      {u && (
-        <form className="login-form" onSubmit={(e) => { e.preventDefault(); if (!busy) entrar(u, pw); }}>
-          <label className="field">Contraseña de {PERFILES.find((p) => p.u === u).nombre}
-            <input ref={pwRef} id="password" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required />
-          </label>
-          <button className="btn" type="submit" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
-        </form>
-      )}
-      {err && <p className="err">{err}</p>}
-    </Splash>
+    </div>
   );
 }
 
@@ -122,12 +189,12 @@ function Main({ me, onLogout, onExpired }) {
         <div className="brand"><Mark /><div><div className="brand-name">Bitácora</div><div className="brand-sub">del Chofer</div></div></div>
         <div className="who">
           <div className="who-txt"><b>{me.nombre}</b><span className={'role ' + me.rol}>{ROLE_LABEL[me.rol]}</span></div>
-          <Avatar u={me.usuario} />
-          <button type="button" className="ghost" onClick={onLogout}>Salir</button>
+          {me.rol === 'chofer' ? <EmpAvatar emp={{ id: me.empleado, nombre: me.nombre }} /> : <Avatar u={me.usuario} />}
+          <button type="button" className="ghost" onClick={onLogout}>{me.rol === 'chofer' ? 'Cambiar chofer' : 'Salir'}</button>
         </div>
       </header>
       {error && <div className="notice">{error} Lo que ves puede no estar al día.</div>}
-      {me.rol === 'chofer' ? <ChoferView D={D} act={act} /> : <AdminView D={D} act={act} me={me} />}
+      {me.rol === 'chofer' ? <ChoferView D={D} act={act} me={me} /> : <AdminView D={D} act={act} me={me} />}
     </div>
   );
 }

@@ -7,7 +7,7 @@ export const POST = handler(null, async (req, u) => {
   const chofer = u.rol === 'chofer';
   const f = chofer ? hoyMX() : fecha(b.fecha);
   const cam = entero(b.camioneta, 'Elige una camioneta.');
-  const emp = entOpc(b.empleado, 'Elige quién maneja.');
+  const emp = chofer ? u.empleado : entOpc(b.empleado, 'Elige quién maneja.');
   if (chofer && emp == null) throw new Bad('Elige quién maneja.');
   await camActiva(sql, cam);
   await empActivo(sql, emp);

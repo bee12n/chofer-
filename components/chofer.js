@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { api, pushToast, Odo, EmpAvatar } from './ui';
+import { api, pushToast, Odo } from './ui';
 import { reading, prevReading, camLabel, kmf, money, shortDay, longDay, nowHM, byTime } from '@/lib/calc';
 
 function useStored(key) {
@@ -10,11 +10,11 @@ function useStored(key) {
   return [v, set];
 }
 
-export default function ChoferView({ D, act }) {
+export default function ChoferView({ D, act, me }) {
   const today = D.hoy;
-  const [emp, setEmp] = useStored('bc-emp');
-  const [cam, setCam] = useStored('bc-cam');
-  const empObj = D.emps.find((e) => e.id === emp) || null;
+  const emp = me.empleado;
+  const [cam, setCam] = useStored('bc-cam-' + emp);
+  const empObj = { id: emp, nombre: me.nombre };
 
   // Camionetas asignadas a este empleado primero
   const cams = [...D.cams].sort((a, b) => (b.empleados.includes(emp) ? 1 : 0) - (a.empleados.includes(emp) ? 1 : 0) || a.id - b.id);
@@ -73,22 +73,9 @@ export default function ChoferView({ D, act }) {
         <p className="cap">{longDay(today)}</p>
       </div>
 
-      <section className="glass card">
-        <span className="eyebrow">1 · ¿Quién maneja?</span>
-        {D.emps.length ? (
-          <div className="chips">
-            {D.emps.map((e) => (
-              <button type="button" key={e.id} className={'chip person-chip' + (e.id === emp ? ' on' : '')} aria-pressed={e.id === emp} onClick={() => setEmp(e.id)}>
-                <EmpAvatar emp={e} size="sm2" /><b>{e.nombre}</b>
-              </button>
-            ))}
-          </div>
-        ) : <div className="empty">Todavía no hay empleados. Pide a Ana o a Ximena que te den de alta.</div>}
-      </section>
-
       {empObj && (
         <section className="glass card">
-          <span className="eyebrow">2 · ¿Qué camioneta traes?</span>
+          <span className="eyebrow">1 · ¿Qué camioneta traes?</span>
           {cams.length ? (
             <div className="chips">
               {cams.map((c) => (
@@ -105,7 +92,7 @@ export default function ChoferView({ D, act }) {
       {listo && (
         <>
           <section className="glass card hero">
-            <span className="eyebrow">3 · Cada vez que salgas</span>
+            <span className="eyebrow">2 · Cada vez que salgas</span>
             <div className="count"><span className="big">{mine.length}</span><span className="muted">{mine.length === 1 ? 'vuelta hoy' : 'vueltas hoy'}</span></div>
             <input className="input" id="destino" type="text" maxLength={120} placeholder="¿A dónde vas? (opcional)" value={dest} onChange={(e) => setDest(e.target.value)} />
             <button type="button" className="mega" disabled={busy} onClick={addVuelta}>+ Registrar vuelta</button>
@@ -113,7 +100,7 @@ export default function ChoferView({ D, act }) {
 
           <section className="glass card">
             <div className="card-head">
-              <span className="eyebrow">4 · Medidor de hoy</span>
+              <span className="eyebrow">3 · Medidor de hoy</span>
               {r ? <span className="pill ok">Registrado</span> : <span className="pill warn">Falta registrar</span>}
             </div>
             {r ? (

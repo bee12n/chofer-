@@ -13,16 +13,17 @@ export const GET = handler(null, async (req, u) => {
       COALESCE(array_agg(ce.empleado_id) FILTER (WHERE ce.empleado_id IS NOT NULL), '{}') AS empleados
     FROM camionetas c LEFT JOIN camioneta_empleados ce ON ce.camioneta_id = c.id
     GROUP BY c.id ORDER BY c.id`;
+  const yo = admin ? null : u.empleado;
   const empleados = admin
     ? sql`SELECT id, nombre, telefono, activo FROM empleados ORDER BY nombre`
-    : sql`SELECT id, nombre, activo FROM empleados WHERE activo ORDER BY nombre`;
+    : sql`SELECT id, nombre, activo FROM empleados WHERE id = ${yo}`;
   const vueltas = admin
     ? sql`SELECT id, to_char(fecha, 'YYYY-MM-DD') AS fecha, hora, camioneta_id AS camioneta, empleado_id AS empleado, destino,
              creado_por AS "creadoPor", (extract(epoch FROM creado) * 1000)::float8 AS creado
           FROM vueltas WHERE fecha >= current_date - 400 ORDER BY fecha, hora, id`
     : sql`SELECT id, to_char(fecha, 'YYYY-MM-DD') AS fecha, hora, camioneta_id AS camioneta, empleado_id AS empleado, destino,
              (extract(epoch FROM creado) * 1000)::float8 AS creado
-          FROM vueltas WHERE fecha = ${hoy} ORDER BY hora, id`;
+          FROM vueltas WHERE fecha = ${hoy} AND empleado_id = ${yo} ORDER BY hora, id`;
   const gasolina = admin
     ? sql`SELECT id, to_char(fecha, 'YYYY-MM-DD') AS fecha, hora, camioneta_id AS camioneta, empleado_id AS empleado,
              monto::float8 AS monto, litros::float8 AS litros, creado_por AS "creadoPor",
@@ -30,7 +31,7 @@ export const GET = handler(null, async (req, u) => {
           FROM gasolina WHERE fecha >= current_date - 400 ORDER BY fecha, hora, id`
     : sql`SELECT id, to_char(fecha, 'YYYY-MM-DD') AS fecha, hora, camioneta_id AS camioneta, empleado_id AS empleado,
              monto::float8 AS monto, litros::float8 AS litros, (extract(epoch FROM creado) * 1000)::float8 AS creado
-          FROM gasolina WHERE fecha = ${hoy} ORDER BY hora, id`;
+          FROM gasolina WHERE fecha = ${hoy} AND empleado_id = ${yo} ORDER BY hora, id`;
   const medidor = sql`SELECT to_char(fecha, 'YYYY-MM-DD') || '_' || camioneta_id AS id, to_char(fecha, 'YYYY-MM-DD') AS fecha,
       camioneta_id AS camioneta, km, empleado_id AS empleado
     FROM medidor ORDER BY fecha`;
