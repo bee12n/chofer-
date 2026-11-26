@@ -39,10 +39,11 @@ export const GET = handler(['admin'], async (req) => {
         FROM gasolina g JOIN camionetas c ON c.id = g.camioneta_id LEFT JOIN empleados e ON e.id = g.empleado_id
         WHERE g.fecha BETWEEN ${desde} AND ${hasta} ORDER BY g.fecha, g.hora, g.id`,
     sql`SELECT * FROM (
-          SELECT m.fecha AS f, to_char(m.fecha, 'YYYY-MM-DD') AS fecha, c.nombre AS camioneta, m.km,
-                 m.km - LAG(m.km) OVER (PARTITION BY m.camioneta_id ORDER BY m.fecha) AS recorrido, e.nombre AS empleado
-          FROM medidor m JOIN camionetas c ON c.id = m.camioneta_id LEFT JOIN empleados e ON e.id = m.empleado_id) x
-        WHERE f BETWEEN ${desde} AND ${hasta} ORDER BY f, camioneta`,
+          SELECT m.fecha AS f, to_char(m.fecha, 'YYYY-MM-DD') AS fecha, m.hora, c.nombre AS camioneta, m.km, m.id,
+                 m.km - LAG(m.km) OVER (PARTITION BY m.camioneta_id ORDER BY m.fecha, m.km, m.id) AS recorrido,
+                 e.nombre AS empleado, m.creado_por
+          FROM lecturas m JOIN camionetas c ON c.id = m.camioneta_id LEFT JOIN empleados e ON e.id = m.empleado_id) x
+        WHERE f BETWEEN ${desde} AND ${hasta} ORDER BY camioneta, f, km, id`,
     sql`SELECT to_char(m.fecha, 'YYYY-MM-DD') AS fecha, c.nombre AS camioneta, m.tipo, m.descripcion, m.costo::float8 AS costo,
            m.km, m.estado, m.proximo_km, to_char(m.proximo_fecha, 'YYYY-MM-DD') AS proximo_fecha,
            COALESCE((SELECT string_agg(mc.autor || ': ' || mc.texto, ' | ' ORDER BY mc.creado)
@@ -114,9 +115,10 @@ export const GET = handler(['admin'], async (req) => {
   ], gasolina.map((g) => ({ ...g, empleado: g.empleado || '', litros: g.litros ?? '', ppl: g.litros ? Math.round((g.monto / g.litros) * 100) / 100 : '', registro: quien(g.creado_por) })));
 
   hoja(wb, 'Medidor', [
-    { h: 'Fecha', k: 'fecha', w: 12 }, { h: 'Camioneta', k: 'camioneta', w: 20 }, { h: 'Km en tablero', k: 'km', w: 14 },
-    { h: 'Km recorridos', k: 'recorrido', w: 14 }, { h: 'Registró (empleado)', k: 'empleado', w: 20 },
-  ], medidor.map((m) => ({ fecha: m.fecha, camioneta: m.camioneta, km: m.km, recorrido: m.recorrido ?? '', empleado: m.empleado || '' })));
+    { h: 'Camioneta', k: 'camioneta', w: 24 }, { h: 'Fecha', k: 'fecha', w: 12 }, { h: 'Hora', k: 'hora', w: 8 },
+    { h: 'Km en tablero', k: 'km', w: 14 }, { h: 'Km desde la lectura anterior', k: 'recorrido', w: 16 },
+    { h: 'Chofer', k: 'empleado', w: 20 }, { h: 'Registró', k: 'registro', w: 12 },
+  ], medidor.map((m) => ({ camioneta: m.camioneta, fecha: m.fecha, hora: m.hora, km: m.km, recorrido: m.recorrido ?? '', empleado: m.empleado || '', registro: quien(m.creado_por) })));
 
   hoja(wb, 'Mantenimientos', [
     { h: 'Fecha', k: 'fecha', w: 12 }, { h: 'Camioneta', k: 'camioneta', w: 20 }, { h: 'Tipo', k: 'tipo', w: 18 },

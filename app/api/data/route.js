@@ -16,7 +16,7 @@ export const GET = handler(null, async (req, u) => {
   const yo = admin ? null : u.empleado;
   const empleados = admin
     ? sql`SELECT id, nombre, telefono, activo FROM empleados ORDER BY nombre`
-    : sql`SELECT id, nombre, activo FROM empleados WHERE id = ${yo}`;
+    : sql`SELECT id, nombre, activo FROM empleados WHERE activo OR id = ${yo} ORDER BY nombre`;
   const vueltas = admin
     ? sql`SELECT id, to_char(fecha, 'YYYY-MM-DD') AS fecha, hora, camioneta_id AS camioneta, empleado_id AS empleado, destino,
              creado_por AS "creadoPor", (extract(epoch FROM creado) * 1000)::float8 AS creado
@@ -32,9 +32,9 @@ export const GET = handler(null, async (req, u) => {
     : sql`SELECT id, to_char(fecha, 'YYYY-MM-DD') AS fecha, hora, camioneta_id AS camioneta, empleado_id AS empleado,
              monto::float8 AS monto, litros::float8 AS litros, (extract(epoch FROM creado) * 1000)::float8 AS creado
           FROM gasolina WHERE fecha = ${hoy} AND empleado_id = ${yo} ORDER BY hora, id`;
-  const medidor = sql`SELECT to_char(fecha, 'YYYY-MM-DD') || '_' || camioneta_id AS id, to_char(fecha, 'YYYY-MM-DD') AS fecha,
-      camioneta_id AS camioneta, km, empleado_id AS empleado
-    FROM medidor ORDER BY fecha`;
+  const medidor = sql`SELECT id, to_char(fecha, 'YYYY-MM-DD') AS fecha, hora, camioneta_id AS camioneta, km,
+      empleado_id AS empleado, creado_por AS "creadoPor", (extract(epoch FROM creado) * 1000)::float8 AS creado
+    FROM lecturas ORDER BY fecha, km, id`;
 
   const base = await Promise.all([camionetas, empleados, vueltas, gasolina, medidor]);
   const out = { hoy, camionetas: base[0], empleados: base[1], vueltas: base[2], gasolina: base[3], medidor: base[4] };

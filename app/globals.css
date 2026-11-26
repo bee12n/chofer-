@@ -383,3 +383,13 @@ tr:last-child td { border-bottom: 0; }
 .pw-wrap input { padding-right: 84px; }
 .pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); z-index: 1; border: 0; background: var(--glass); border-radius: 10px; padding: 7px 12px; font-weight: 700; font-size: .82rem; color: var(--muted); }
 .login-card .err { text-align: center; }
+
+/* ---------- lecturas del medidor ---------- */
+.lecturas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--stroke); }
+.lecturas li { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--stroke); }
+.lt-h { font-family: var(--mono); font-weight: 700; font-size: .85rem; color: var(--muted); }
+.lt-km { display: flex; flex-direction: column; min-width: 0; }
+.lt-km b { font-variant-numeric: tabular-nums; }
+.lt-km small { color: var(--muted); font-size: .78rem; overflow-wrap: anywhere; }
+.lt-diff { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--green); font-size: .88rem; }
+.lt-acts { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; }

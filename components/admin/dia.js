@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { api, pushToast, Kpi, Odo, Avatar, EmpAvatar, ConfirmBtn, CamSelect, EmpSelect, DateNav, Sheet } from '../ui';
-import { statsRange, reading, prevReading, kmDia, camLabel, empLabel, kmf, money, shortDay, nowHM, byTime, USUARIOS } from '@/lib/calc';
+import { statsRange, reading, prevReading, kmDia, lecturasDia, camLabel, empLabel, kmf, money, shortDay, nowHM, byTime, USUARIOS } from '@/lib/calc';
+import { Lecturas } from '../chofer';
 
 export default function Dia({ D, act, sel, setSel }) {
   const s = statsRange(D, [sel]);
@@ -160,38 +161,46 @@ function OdoCard({ D, act, cam, fecha }) {
   const r = reading(D, cam.id, fecha);
   const p = prevReading(D, cam.id, fecha);
   const k = kmDia(D, cam.id, fecha);
-  const [edit, setEdit] = useState(false);
-  const [km, setKm] = useState('');
-  const [err, setErr] = useState('');
-  const save = async (e) => {
-    e.preventDefault();
-    const n = parseInt(km, 10);
-    if (!(n >= 0)) { setErr('Escribe un número válido.'); return; }
-    if (p && n < p.km) { setErr(`Menor que la lectura anterior (${kmf(p.km)} km).`); return; }
-    if (await act(() => api('/api/medidor', { method: 'PUT', body: { fecha, camioneta: cam.id, km: n, empleado: r?.empleado ?? null } }), 'Medidor guardado')) { setEdit(false); setErr(''); }
-  };
+  const list = lecturasDia(D, cam.id, fecha);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(null);
   return (
     <div className="odo-card">
-      <div className="odo-top"><b>{cam.nombre}</b>{r ? <span className="pill ok">Registrado</span> : <span className="pill warn">Falta lectura</span>}</div>
-      {edit ? (
-        <form className="grid2" onSubmit={save}>
-          <label className="field full">Kilómetros
-            <input type="number" inputMode="numeric" min="0" step="1" value={km} onChange={(e) => setKm(e.target.value)} required />
-          </label>
-          {err && <p className="err full">{err}</p>}
-          <button type="button" className="btn soft" onClick={() => { setEdit(false); setErr(''); }}>Cancelar</button>
-          <button className="btn" type="submit">Guardar</button>
-        </form>
-      ) : r && <Odo km={r.km} />}
-      <div className="kv"><span>Lectura anterior</span><b>{p ? `${kmf(p.km)} km · ${shortDay(p.fecha)}` : '—'}</b></div>
+      <div className="odo-top"><b>{cam.nombre}</b>{r ? <span className="pill ok">{list.length} {list.length === 1 ? 'lectura' : 'lecturas'}</span> : <span className="pill warn">Falta lectura</span>}</div>
+      {r && <Odo km={r.km} />}
+      <div className="kv"><span>Día anterior</span><b>{p ? `${kmf(p.km)} km · ${shortDay(p.fecha)}` : '—'}</b></div>
       <div className="kv"><span>Recorrido del día</span><b>{k != null ? kmf(k) + ' km' : '—'}</b></div>
-      {r && r.empleado != null && <div className="kv"><span>Registró</span><b>{empLabel(D, r.empleado)}</b></div>}
-      {!edit && (
-        <div className="btnrow">
-          <button type="button" className="ghost" onClick={() => { setEdit(true); setKm(r ? String(r.km) : ''); }}>{r ? 'Editar' : 'Registrar lectura'}</button>
-          {r && <ConfirmBtn onConfirm={() => act(() => api(`/api/medidor?fecha=${fecha}&camioneta=${cam.id}`, { method: 'DELETE' }), 'Lectura borrada')} />}
-        </div>
-      )}
+      <Lecturas D={D} list={list} prev={p} emp={-1} actions={(m) => (
+        <span className="lt-acts">
+          <button type="button" className="ghost" onClick={() => setEditing(m)}>Editar</button>
+          <ConfirmBtn onConfirm={() => act(() => api(`/api/medidor/${m.id}`, { method: 'DELETE' }), 'Lectura borrada')} />
+        </span>
+      )} />
+      <div className="btnrow"><button type="button" className="ghost" onClick={() => setAdding(true)}>+ Agregar lectura</button></div>
+      {adding && <LecturaSheet D={D} act={act} cam={cam} fecha={fecha} min={r || p} onClose={() => setAdding(false)} />}
+      {editing && <LecturaSheet D={D} act={act} cam={cam} fecha={fecha} m={editing} onClose={() => setEditing(null)} />}
     </div>
+  );
+}
+
+function LecturaSheet({ D, act, cam, fecha, m, min, onClose }) {
+  const [f, setF] = useState({ km: m ? String(m.km) : '', hora: m?.hora || nowHM(), emp: m ? m.empleado ?? null : null, fecha: m?.fecha || fecha });
+  const save = async () => {
+    const n = parseInt(f.km, 10);
+    if (!(n >= 0)) { pushToast('Escribe los kilómetros del medidor'); return; }
+    const body = { fecha: f.fecha, hora: f.hora, km: n, empleado: f.emp, camioneta: cam.id };
+    const ok = await act(() => api(m ? `/api/medidor/${m.id}` : '/api/medidor', { method: m ? 'PATCH' : 'POST', body }), m ? 'Lectura corregida' : 'Lectura agregada');
+    if (ok) onClose();
+  };
+  return (
+    <Sheet title={`${m ? 'Corregir' : 'Agregar'} lectura · ${cam.nombre}`} onClose={onClose} onSubmit={save}>
+      <div className="grid2">
+        <label className="field">Kilómetros<input id="l-km" type="number" inputMode="numeric" min="0" step="1" value={f.km} onChange={(e) => setF({ ...f, km: e.target.value })} required autoFocus /></label>
+        <label className="field">Hora<input id="l-hora" type="time" value={f.hora} onChange={(e) => setF({ ...f, hora: e.target.value })} required /></label>
+        <label className="field">Fecha<input id="l-fecha" type="date" value={f.fecha} onChange={(e) => e.target.value && setF({ ...f, fecha: e.target.value })} required /></label>
+        <label className="field">Chofer<EmpSelect id="l-emp" D={D} value={f.emp} onChange={(v) => setF({ ...f, emp: v })} /></label>
+        {!m && min && <p className="hint full">Última lectura: {kmf(min.km)} km.</p>}
+      </div>
+    </Sheet>
   );
 }

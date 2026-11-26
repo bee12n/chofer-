@@ -1,7 +1,28 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { api, pushToast, Odo } from './ui';
-import { reading, prevReading, camLabel, kmf, money, shortDay, longDay, nowHM, byTime } from '@/lib/calc';
+import { reading, prevReading, lecturasDia, camLabel, empLabel, kmf, money, shortDay, longDay, nowHM, byTime } from '@/lib/calc';
+
+/* Lista de las lecturas del día con los km recorridos entre cada una. */
+export function Lecturas({ D, list, prev, emp, actions }) {
+  if (!list.length) return null;
+  return (
+    <ul className="lecturas">
+      {list.map((m, i) => {
+        const base = i ? list[i - 1] : prev;
+        const diff = base ? m.km - base.km : null;
+        return (
+          <li key={m.id}>
+            <span className="lt-h">{m.hora || '—'}</span>
+            <span className="lt-km"><b>{kmf(m.km)} km</b><small>{m.empleado === emp ? 'Tú' : empLabel(D, m.empleado)}</small></span>
+            <span className="lt-diff">{diff != null ? `+${kmf(diff)} km` : 'inicio'}</span>
+            {actions && actions(m)}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function useStored(key) {
   const [v, setV] = useState(0);
@@ -41,17 +62,31 @@ export default function ChoferView({ D, act, me }) {
 
   const r = camOk ? reading(D, cam, today) : null;
   const p = camOk ? prevReading(D, cam, today) : null;
+  const hoyLecturas = camOk ? lecturasDia(D, cam, today) : [];
+  const ultima = r || p; // la lectura más reciente de esta camioneta
   const [km, setKm] = useState('');
   const [kmErr, setKmErr] = useState('');
-  useEffect(() => { setKm(''); setKmErr(''); }, [cam]);
+  const [reAct, setReAct] = useState(false);
+  useEffect(() => { setKm(''); setKmErr(''); setReAct(false); }, [cam]);
   const saveKm = async (e) => {
     e.preventDefault();
     const n = parseInt(km, 10);
     if (!(n >= 0)) { setKmErr('Escribe los kilómetros que marca el tablero.'); return; }
-    if (p && n < p.km) { setKmErr(`No puede ser menor que la lectura anterior (${kmf(p.km)} km).`); return; }
+    if (ultima && n < ultima.km) { setKmErr(`No puede ser menor que la última lectura (${kmf(ultima.km)} km).`); return; }
     setKmErr('');
-    if (await act(() => api('/api/medidor', { method: 'PUT', body: { camioneta: cam, km: n, empleado: emp } }), 'Medidor guardado')) setKm('');
+    if (await act(() => api('/api/medidor', { method: 'POST', body: { camioneta: cam, km: n } }), r ? 'Medidor reactualizado' : 'Medidor guardado')) { setKm(''); setReAct(false); }
   };
+  const kmForm = (
+    <form className="grid2" onSubmit={saveKm}>
+      <label className="field full">{r ? '¿Cuántos kilómetros marca ahora el tablero?' : '¿Cuántos kilómetros marca el tablero?'}
+        <input id="km" type="number" inputMode="numeric" min={ultima ? ultima.km : 0} step="1" placeholder={ultima ? String(ultima.km) : '125430'} value={km} onChange={(e) => setKm(e.target.value)} required autoFocus={reAct} />
+      </label>
+      <p className="hint full">{ultima ? `Última lectura: ${kmf(ultima.km)} km (${ultima.fecha === today ? 'hoy ' + ultima.hora : shortDay(ultima.fecha)}). Revisa bien el número antes de guardar.` : 'Primera lectura de esta camioneta.'}</p>
+      {kmErr && <p className="err full">{kmErr}</p>}
+      {reAct && <button className="btn soft" type="button" onClick={() => { setReAct(false); setKmErr(''); setKm(''); }}>Cancelar</button>}
+      <button className={'btn' + (reAct ? '' : ' full')} type="submit">{r ? 'Guardar nueva lectura' : 'Guardar medidor'}</button>
+    </form>
+  );
 
   const [gOpen, setGOpen] = useState(false);
   const [monto, setMonto] = useState('');
@@ -106,19 +141,14 @@ export default function ChoferView({ D, act, me }) {
             {r ? (
               <>
                 <Odo km={r.km} />
-                <div className="kv"><span>Recorrido desde la lectura anterior</span><b>{p ? kmf(r.km - p.km) + ' km' : '—'}</b></div>
-                <p className="hint">¿Hay un error en la lectura? Avísale a Ana o a Ximena.</p>
+                <div className="kv"><span>Recorrido de hoy</span><b>{p ? kmf(r.km - p.km) + ' km' : '—'}</b></div>
+                <Lecturas D={D} list={hoyLecturas} prev={p} emp={emp} />
+                {reAct ? kmForm : (
+                  <button type="button" className="btn soft" onClick={() => setReAct(true)}>↻ Reactualizar medidor</button>
+                )}
+                <p className="hint">¿Saliste otra vez con esta camioneta? Al regresar toca <b>Reactualizar medidor</b>. Se guardan todas las lecturas. Si hay un error, avísale a Ana o a Ximena.</p>
               </>
-            ) : (
-              <form className="grid2" onSubmit={saveKm}>
-                <label className="field full">¿Cuántos kilómetros marca el tablero?
-                  <input id="km" type="number" inputMode="numeric" min="0" step="1" placeholder={p ? String(p.km) : '125430'} value={km} onChange={(e) => setKm(e.target.value)} required />
-                </label>
-                <p className="hint full">{p ? `Lectura anterior: ${kmf(p.km)} km (${shortDay(p.fecha)}). Revisa bien el número: después solo administración puede corregirlo.` : 'Primera lectura de esta camioneta.'}</p>
-                {kmErr && <p className="err full">{kmErr}</p>}
-                <button className="btn full" type="submit">Guardar medidor</button>
-              </form>
-            )}
+            ) : kmForm}
           </section>
 
           <section className="glass card">
