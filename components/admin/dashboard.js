@@ -133,15 +133,19 @@ export default function Dashboard({ D, goTo }) {
       <section className="glass card">
         <div className="card-head"><h2>Por camioneta</h2></div>
         {R.porCam.length ? (
-          <div className="tbl">
+          <div className="tbl stack">
             <table>
               <thead><tr><th>Camioneta</th><th>Vueltas</th><th>Gasolina</th><th>Litros</th><th>Km</th><th>Km/L</th><th>Mantenimiento</th></tr></thead>
               <tbody>
                 {R.porCam.map(({ c, s, mant }) => (
                   <tr key={c.id}>
-                    <td>{camLabel(D, c.id)}</td><td>{s.vueltas}</td><td>{money(s.gas)}</td>
-                    <td>{s.litros ? s.litros.toFixed(1) : '—'}</td><td>{s.kk ? kmf(s.km) : '—'}</td>
-                    <td>{s.kk && s.litros ? (s.km / s.litros).toFixed(1) : '—'}</td><td>{mant ? money(mant) : '—'}</td>
+                    <td className="t-name">{camLabel(D, c.id)}</td>
+                    <td data-l="Vueltas">{s.vueltas}</td>
+                    <td data-l="Gasolina">{money(s.gas)}</td>
+                    <td data-l="Litros">{s.litros ? s.litros.toFixed(1) : '—'}</td>
+                    <td data-l="Km">{s.kk ? kmf(s.km) : '—'}</td>
+                    <td data-l="Km/L">{s.kk && s.litros ? (s.km / s.litros).toFixed(1) : '—'}</td>
+                    <td data-l="Mantenimiento">{mant ? money(mant) : '—'}</td>
                   </tr>
                 ))}
               </tbody>

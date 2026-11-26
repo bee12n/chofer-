@@ -56,7 +56,7 @@ export default function ChoferView({ D, act, me }) {
     if (!listo || busy) return;
     setBusy(true);
     const ok = await act(() => api('/api/vueltas', { method: 'POST', body: { hora: nowHM(), camioneta: cam, empleado: emp, destino: dest } }), `Vuelta ${mine.length + 1} registrada`);
-    if (ok) setDest('');
+    if (ok) { setDest(''); try { navigator.vibrate?.(40); } catch {} }
     setBusy(false);
   };
 

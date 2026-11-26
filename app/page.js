@@ -186,11 +186,13 @@ function Main({ me, onLogout, onExpired }) {
   return (
     <div className="app layer">
       <header className="glass topbar">
-        <div className="brand"><Mark /><div><div className="brand-name">Bitácora</div><div className="brand-sub">del Chofer</div></div></div>
+        <div className="brand"><Mark /><div className="brand-txt"><div className="brand-name">Bitácora</div><div className="brand-sub">del Chofer</div></div></div>
         <div className="who">
-          <div className="who-txt"><b>{me.nombre}</b><span className={'role ' + me.rol}>{ROLE_LABEL[me.rol]}</span></div>
           {me.rol === 'chofer' ? <EmpAvatar emp={{ id: me.empleado, nombre: me.nombre }} /> : <Avatar u={me.usuario} />}
-          <button type="button" className="ghost" onClick={onLogout}>{me.rol === 'chofer' ? 'Cambiar chofer' : 'Salir'}</button>
+          <div className="who-txt"><b>{me.nombre}</b><span className={'role ' + me.rol}>{me.rol === 'admin' ? <><span className="tl-long">{ROLE_LABEL.admin}</span><span className="tl-short">Admin</span></> : ROLE_LABEL.chofer}</span></div>
+          <button type="button" className="ghost logout" onClick={onLogout}>
+            {me.rol === 'chofer' ? <><span className="tl-long">Cambiar chofer</span><span className="tl-short">Cambiar</span></> : 'Salir'}
+          </button>
         </div>
       </header>
       {error && <div className="notice">{error} Lo que ves puede no estar al día.</div>}
